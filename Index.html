@@ -68,27 +68,26 @@
             const msg = event.data;
 
             if (msg.startsWith("SCORE_UPDATE:")) {
-                // Découpage simple du message reçu : ["SCORE_UPDATE", "Nom", "Score"]
                 const parts = msg.split(":");
                 if (parts.length < 3) return;
 
-                const nom = parts[1];
+                // On transforme le nom en MAJUSCULE pour éviter les doublons nelson/NELSON
+                const nom = parts[1].toUpperCase().trim();
                 const scoreNum = parseInt(parts[2]);
 
-                // Évite d'ajouter deux fois la même ligne si on rafraîchit le menu
+                if (isNaN(scoreNum)) return;
+
+                // Vérifie si cette copie exacte existe déjà
                 const existe = listeParties.some(p => p.nom === nom && p.score === scoreNum);
                 
                 if (!existe) {
-                    // Désactive l'ancien marqueur "Nouveau !"
                     listeParties.forEach(p => p.actuelle = false);
-                    
-                    // Ajoute la nouvelle partie à la liste en mémoire
                     listeParties.push({ nom: nom, score: scoreNum, actuelle: true });
                     
-                    // Tri du plus grand au plus petit score
+                    // Tri du plus grand au plus petit
                     listeParties.sort((a, b) => b.score - a.score);
                     
-                    // Génération dynamique des lignes HTML du tableau
+                    // Reconstruction propre du tableau
                     corpsClassement.innerHTML = "";
                     listeParties.slice(0, 10).forEach((p, index) => {
                         const ligne = document.createElement("tr");
@@ -102,7 +101,6 @@
                     });
                 }
             } else {
-                // Flux d'affichage standard du terminal
                 terminal.innerText = msg;
                 terminal.scrollTop = terminal.scrollHeight;
             }
