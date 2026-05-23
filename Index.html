@@ -22,7 +22,6 @@
         }
         button { background: #00ff00; color: #000; font-weight: bold; border: none; padding: 10px 20px; cursor: pointer; }
         
-        /* Zone Classement */
         #zone-classement {
             margin-top: 20px; border: 2px solid #00ff00; padding: 15px; 
             width: 800px; background-color: #000; box-shadow: 0 0 10px #00ff00;
@@ -31,13 +30,7 @@
         th, td { padding: 8px; text-align: left; }
         th { border-bottom: 2px solid #00ff00; }
         .text-right { text-align: right; }
-        
-        /* Style spécial pour la dernière partie jouée */
-        .derniere-partie {
-            background-color: rgba(0, 255, 0, 0.25);
-            color: #fff;
-            font-weight: bold;
-        }
+        .derniere-partie { background-color: rgba(0, 255, 0, 0.25); color: #fff; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -69,33 +62,31 @@
         const input = document.getElementById("inputBox");
         const corpsClassement = document.getElementById("corps-classement");
         
-        // Tableau JavaScript pour stocker et trier les scores localement
         let listeParties = [];
 
         socket.onmessage = (event) => {
             const msg = event.data;
 
+            // Si c'est une mise à jour de score, on traite le tableau à part
             if (msg.startsWith("SCORE_UPDATE:")) {
-                // On extrait "Nom : XX points"
                 const contenu = msg.replace("SCORE_UPDATE:", "");
                 const parts = contenu.split(" : ");
-                const nom = parts[0].trim();
-                const scoreNum = parseInt(parts[1].replace("points", "").trim());
+                if(parts.length < 2) return;
 
-                // On vérifie si cette partie précise est déjà dans notre tableau pour éviter les doublons
-                const existe deja = listeParties.some(p => p.nom === nom && p.score === scoreNum);
+                const nom = parts[0].trim();
+                const scoreNum = parseInt(parts[1].replace("points", "").replace("pts", "").trim());
+
+                // Vérification des doublons (Correction du bug de variable ici)
+                const existe = listeParties.some(p => p.nom === nom && p.score === scoreNum);
                 
-                if (!existeja) {
-                    // On retire le badge "dernière partie" aux anciennes
+                if (!existe) {
                     listeParties.forEach(p => p.actuelle = false);
-                    
-                    // On ajoute la nouvelle venue
                     listeParties.push({ nom: nom, score: scoreNum, actuelle: true });
                     
-                    // Tri automatique du plus grand au plus petit score
+                    // Tri décroissant
                     listeParties.sort((a, b) => b.score - a.score);
                     
-                    // On reconstruit le tableau HTML (limité au Top 10)
+                    // Rendu HTML
                     corpsClassement.innerHTML = "";
                     listeParties.slice(0, 10).forEach((p, index) => {
                         const ligne = document.createElement("tr");
@@ -109,6 +100,7 @@
                     });
                 }
             } else {
+                // Sinon, c'est le texte classique du jeu, on l'affiche directement dans le terminal
                 terminal.innerText = msg;
                 terminal.scrollTop = terminal.scrollHeight;
             }
