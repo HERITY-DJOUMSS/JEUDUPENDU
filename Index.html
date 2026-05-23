@@ -56,65 +56,75 @@
         </table>
     </div>
 
-    <script>
-        const socket = new WebSocket("wss://suitor-defog-dreaded.ngrok-free.dev");
-        const terminal = document.getElementById("terminal");
-        const input = document.getElementById("inputBox");
-        const corpsClassement = document.getElementById("corps-classement");
-        
-        let listeParties = [];
+   <script>
+    const socket = new WebSocket("wss://suitor-defog-dreaded.ngrok-free.dev");
+    const terminal = document.getElementById("terminal");
+    const input = document.getElementById("inputBox");
+    const corpsClassement = document.getElementById("corps-classement");
 
-        socket.onmessage = (event) => {
-            const msg = event.data;
+    socket.onmessage = (event) => {
+        const msg = event.data;
 
-            if (msg.startsWith("SCORE_UPDATE:")) {
-                const parts = msg.split(":");
-                if (parts.length < 3) return;
+        if (msg.startsWith("SCORE_UPDATE:")) {
+            // On enlève le préfixe "SCORE_UPDATE:"
+            const rawData = msg.replace("SCORE_UPDATE:", "");
+            if (!rawData.trim()) return;
 
-                // On transforme le nom en MAJUSCULE pour éviter les doublons nelson/NELSON
-                const nom = parts[1].toUpperCase().trim();
-                const scoreNum = parseInt(parts[2]);
+            // On découpe chaque joueur séparé par des ";"
+            const joueursRaw = rawData.split(";");
+            let listeParties = [];
 
-                if (isNaN(scoreNum)) return;
-
-                // Vérifie si cette copie exacte existe déjà
-                const existe = listeParties.some(p => p.nom === nom && p.score === scoreNum);
-                
-                if (!existe) {
-                    listeParties.forEach(p => p.actuelle = false);
-                    listeParties.push({ nom: nom, score: scoreNum, actuelle: true });
+            joueursRaw.forEach(j => {
+                const infos = j.split(","); // Découpe "Nom,Score"
+                if (infos.length === 2) {
+                    const nomNettoye = infos[0].toUpperCase().trim();
+                    const scoreNum = parseInt(infos[1]);
                     
-                    // Tri du plus grand au plus petit
-                    listeParties.sort((a, b) => b.score - a.score);
-                    
-                    // Reconstruction propre du tableau
-                    corpsClassement.innerHTML = "";
-                    listeParties.slice(0, 10).forEach((p, index) => {
-                        const ligne = document.createElement("tr");
-                        if (p.actuelle) {
-                            ligne.className = "derniere-partie";
-                            ligne.innerHTML = `<td>⚡ ${index + 1}</td><td>${p.nom} (Nouveau !)</td><td class="text-right">${p.score} pts</td>`;
-                        } else {
-                            ligne.innerHTML = `<td># ${index + 1}</td><td>${p.nom}</td><td class="text-right">${p.score} pts</td>`;
-                        }
-                        corpsClassement.appendChild(ligne);
-                    });
+                    if (!isNaN(scoreNum)) {
+                        listeParties.push({ nom: nomNettoye, score: scoreNum });
+                    }
                 }
-            } else {
-                terminal.innerText = msg;
-                terminal.scrollTop = terminal.scrollHeight;
-            }
-        };
+            });
 
-        function envoyer() {
-            if (input.value.trim() !== "") {
-                socket.send(input.value);
-                input.value = "";
+            // Tri du plus grand au plus petit score
+            listeParties.sort((a, b) => b.score - a.score);
+
+            // Remplissage dynamique du tableau HTML
+            corpsClassement.innerHTML = "";
+            
+            // On prend uniquement les 10 meilleurs
+            const top10 = listeParties.slice(0, 10);
+            
+            if (top10.length === 0) {
+                corpsClassement.innerHTML = `<tr><td colspan="3" style="text-align: center; color: #666;">Aucun score valide...</td></tr>`;
+                return;
             }
-            input.focus();
+
+            top10.forEach((p, index) => {
+                const ligne = document.createElement("tr");
+                // Le premier du classement aura une petite icône de couronne
+                const prefixe = (index === 0) ? "👑" : `# ${index + 1}`;
+                
+                ligne.innerHTML = `<td>${prefixe}</td><td>${p.nom}</td><td class="text-right">${p.score} pts</td>`;
+                corpsClassement.appendChild(ligne);
+            });
+
+        } else {
+            // Affichage normal du jeu dans le terminal noir
+            terminal.innerText = msg;
+            terminal.scrollTop = terminal.scrollHeight;
         }
+    };
 
-        input.addEventListener("keypress", (e) => { if (e.key === "Enter") envoyer(); });
-    </script>
+    function envoyer() {
+        if (input.value.trim() !== "") {
+            socket.send(input.value);
+            input.value = "";
+        }
+        input.focus();
+    }
+
+    input.addEventListener("keypress", (e) => { if (e.key === "Enter") envoyer(); });
+</script>
 </body>
 </html>
