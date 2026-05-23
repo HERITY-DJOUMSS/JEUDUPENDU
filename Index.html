@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Pendu - Dynamique</title>
+    <style>
+        body {
+            background-color: #121212; color: #00ff00;
+            font-family: 'Consolas', 'Courier New', monospace;
+            display: flex; flex-direction: column; align-items: center;
+            margin: 0; padding: 20px;
+        }
+        #terminal {
+            background-color: #000; border: 2px solid #00ff00;
+            padding: 20px; width: 800px; height: 500px;
+            white-space: pre; /* Indispensable pour l'ASCII et le MCD */
+            overflow-y: auto; font-size: 15px; box-shadow: 0 0 10px #00ff00;
+        }
+        .input-zone { margin-top: 15px; display: flex; width: 840px; }
+        input {
+            flex-grow: 1; background: #222; color: #00ff00; border: 1px solid #00ff00;
+            padding: 10px; font-family: inherit; font-size: 16px; outline: none;
+        }
+        button {
+            background: #00ff00; color: #000; font-weight: bold;
+            border: none; padding: 10px 20px; cursor: pointer;
+        }
+        button:hover { background: #00cc00; }
+    </style>
+</head>
+<body>
+    <div id="terminal">Connexion au serveur Java...</div>
+    <div class="input-zone">
+        <input type="text" id="inputBox" placeholder="Tapez ici..." autocomplete="off" autofocus>
+        <button onclick="envoyer()">Entrée</button>
+    </div>
+
+    <script>
+        const socket = new WebSocket("ws://localhost:8887");
+        const terminal = document.getElementById("terminal");
+        const input = document.getElementById("inputBox");
+
+        socket.onmessage = (event) => {
+            terminal.innerText = event.data;
+            terminal.scrollTop = terminal.scrollHeight; // Descend tout en bas automatiquement
+        };
+
+        function envoyer() {
+            if (input.value.trim() !== "") {
+                socket.send(input.value);
+                input.value = "";
+            }
+            input.focus();
+        }
+
+        input.addEventListener("keypress", (e) => {
+            if (e.key === "Enter") envoyer();
+        });
+    </script>
+</body>
+</html>
