@@ -83,7 +83,7 @@
             const msg = event.data;
 
             if (msg.startsWith("CLASSEMENT:")) {
-                const章 listeRaw = msg.replace("CLASSEMENT:", "");
+                const listeRaw = msg.replace("CLASSEMENT:", "");
                 if (listeRaw.trim() === "") {
                     corpsClassement.innerHTML = `<tr><td colspan="3" style="text-align: center; padding: 15px; color: #666;">Aucune partie trouvée dans le fichier</td></tr>`;
                     return;
