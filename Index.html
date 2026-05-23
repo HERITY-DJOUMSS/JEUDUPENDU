@@ -67,26 +67,28 @@
         socket.onmessage = (event) => {
             const msg = event.data;
 
-            // Si c'est une mise à jour de score, on traite le tableau à part
             if (msg.startsWith("SCORE_UPDATE:")) {
-                const contenu = msg.replace("SCORE_UPDATE:", "");
-                const parts = contenu.split(" : ");
-                if(parts.length < 2) return;
+                // Découpage simple du message reçu : ["SCORE_UPDATE", "Nom", "Score"]
+                const parts = msg.split(":");
+                if (parts.length < 3) return;
 
-                const nom = parts[0].trim();
-                const scoreNum = parseInt(parts[1].replace("points", "").replace("pts", "").trim());
+                const nom = parts[1];
+                const scoreNum = parseInt(parts[2]);
 
-                // Vérification des doublons (Correction du bug de variable ici)
+                // Évite d'ajouter deux fois la même ligne si on rafraîchit le menu
                 const existe = listeParties.some(p => p.nom === nom && p.score === scoreNum);
                 
                 if (!existe) {
+                    // Désactive l'ancien marqueur "Nouveau !"
                     listeParties.forEach(p => p.actuelle = false);
+                    
+                    // Ajoute la nouvelle partie à la liste en mémoire
                     listeParties.push({ nom: nom, score: scoreNum, actuelle: true });
                     
-                    // Tri décroissant
+                    // Tri du plus grand au plus petit score
                     listeParties.sort((a, b) => b.score - a.score);
                     
-                    // Rendu HTML
+                    // Génération dynamique des lignes HTML du tableau
                     corpsClassement.innerHTML = "";
                     listeParties.slice(0, 10).forEach((p, index) => {
                         const ligne = document.createElement("tr");
@@ -100,7 +102,7 @@
                     });
                 }
             } else {
-                // Sinon, c'est le texte classique du jeu, on l'affiche directement dans le terminal
+                // Flux d'affichage standard du terminal
                 terminal.innerText = msg;
                 terminal.scrollTop = terminal.scrollHeight;
             }
