@@ -26,6 +26,16 @@
             border: none; padding: 10px 20px; cursor: pointer;
         }
         button:hover { background: #00cc00; }
+
+        /* Style ajouté pour le tableau de classement */
+        #zone-classement {
+            margin-top: 20px; border: 1px solid #00ff00; padding: 15px; 
+            width: 808px; background-color: #000; box-shadow: 0 0 5px #00ff00;
+        }
+        table { width: 100%; color: #00ff00; border-collapse: collapse; }
+        th, td { padding: 8px; text-align: left; }
+        th { border-bottom: 1px solid #00ff00; text-transform: uppercase; }
+        .text-right { text-align: right; }
     </style>
 </head>
 <body>
@@ -35,14 +45,59 @@
         <button onclick="envoyer()">Entrée</button>
     </div>
 
+    <div id="zone-classement">
+        <h3 style="color: #00ff00; text-align: center; margin-top: 0; letter-spacing: 2px;">🏆 TOP 10 DERNIÈRES PARTIES</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 10%;">Pos.</th>
+                    <th style="width: 60%;">Joueur</th>
+                    <th style="width: 30%;" class="text-right">Score</th>
+                </tr>
+            </thead>
+            <tbody id="corps-classement">
+                <tr><td colspan="3" style="text-align: center; padding: 10px; color: #888;">Aucune partie enregistrée</td></tr>
+            </tbody>
+        </table>
+    </div>
+
     <script>
         const socket = new WebSocket("wss://suitor-defog-dreaded.ngrok-free.dev");
         const terminal = document.getElementById("terminal");
         const input = document.getElementById("inputBox");
+        const corpsClassement = document.getElementById("corps-classement");
 
         socket.onmessage = (event) => {
-            terminal.innerText = event.data;
-            terminal.scrollTop = terminal.scrollHeight; // Descend tout en bas automatiquement
+            const msg = event.data;
+
+            // Interception des messages de classement
+            if (msg.startsWith("CLASSEMENT:")) {
+                const listeRaw = msg.replace("CLASSEMENT:", "");
+                if (listeRaw.trim() === "") return;
+
+                const scores = listeRaw.split(";");
+                corpsClassement.innerHTML = ""; // Réinitialise le tableau
+
+                scores.forEach((entry, index) => {
+                    if (entry.trim() !== "") {
+                        const parts = entry.split(" - ");
+                        const joueur = parts[0] || "Anonyme";
+                        const score = parts[1] || "0 pts";
+
+                        const ligne = document.createElement("tr");
+                        ligne.innerHTML = `
+                            <td>${index + 1}</td>
+                            <td>${joueur}</td>
+                            <td class="text-right">${score}</td>
+                        `;
+                        corpsClassement.appendChild(ligne);
+                    }
+                });
+            } else {
+                // Comportement standard pour l'affichage du jeu
+                terminal.innerText = msg;
+                terminal.scrollTop = terminal.scrollHeight; 
+            }
         };
 
         function envoyer() {
