@@ -13,40 +13,30 @@
         #terminal {
             background-color: #000; border: 2px solid #00ff00;
             padding: 20px; width: 800px; height: 500px;
-            white-space: pre; /* Indispensable pour l'ASCII et le MCD */
-            overflow-y: auto; font-size: 15px; box-shadow: 0 0 10px #00ff00;
+            white-space: pre; overflow-y: auto; font-size: 15px; box-shadow: 0 0 10px #00ff00;
         }
         .input-zone { margin-top: 15px; display: flex; width: 840px; }
         input {
             flex-grow: 1; background: #222; color: #00ff00; border: 1px solid #00ff00;
             padding: 10px; font-family: inherit; font-size: 16px; outline: none;
         }
-        button {
-            background: #00ff00; color: #000; font-weight: bold;
-            border: none; padding: 10px 20px; cursor: pointer;
-        }
-        button:hover { background: #00cc00; }
-
-        /* Styles de la zone de classement */
+        button { background: #00ff00; color: #000; font-weight: bold; border: none; padding: 10px 20px; cursor: pointer; }
+        
+        /* Zone Classement */
         #zone-classement {
             margin-top: 20px; border: 2px solid #00ff00; padding: 15px; 
             width: 800px; background-color: #000; box-shadow: 0 0 10px #00ff00;
         }
-        table { width: 100%; color: #00ff00; border-collapse: collapse; font-size: 16px; }
-        th, td { padding: 10px; text-align: left; }
-        th { border-bottom: 2px solid #00ff00; text-transform: uppercase; letter-spacing: 1px; }
+        table { width: 100%; color: #00ff00; border-collapse: collapse; }
+        th, td { padding: 8px; text-align: left; }
+        th { border-bottom: 2px solid #00ff00; }
         .text-right { text-align: right; }
-
-        /* Effet spécial clignotant pour détacher la dernière partie jouée */
+        
+        /* Style spécial pour la dernière partie jouée */
         .derniere-partie {
-            background-color: rgba(0, 255, 0, 0.2) !important;
-            color: #fff !important;
+            background-color: rgba(0, 255, 0, 0.25);
+            color: #fff;
             font-weight: bold;
-            animation: cyber-flash 1.5s infinite alternate;
-        }
-        @keyframes cyber-flash {
-            0% { box-shadow: inset 0 0 5px rgba(0,255,0,0.3); }
-            100% { box-shadow: inset 0 0 20px rgba(0,255,0,0.7); }
         }
     </style>
 </head>
@@ -58,17 +48,17 @@
     </div>
 
     <div id="zone-classement">
-        <h3 style="color: #00ff00; text-align: center; margin-top: 0; letter-spacing: 2px;">🏆 TOP 10 DES MEILLEURES PARTIES</h3>
+        <h3 style="text-align: center; margin-top: 0;">🏆 TOP 10 DES PARTIES CLASSÉES</h3>
         <table>
             <thead>
                 <tr>
-                    <th style="width: 15%;">Rang</th>
-                    <th style="width: 55%;">Joueur</th>
-                    <th style="width: 30%;" class="text-right">Score</th>
+                    <th>Rang</th>
+                    <th>Joueur</th>
+                    <th class="text-right">Score</th>
                 </tr>
             </thead>
             <tbody id="corps-classement">
-                <tr><td colspan="3" style="text-align: center; padding: 15px; color: #666;">Aucune partie enregistrée</td></tr>
+                <tr><td colspan="3" style="text-align: center; color: #666;">En attente de résultats...</td></tr>
             </tbody>
         </table>
     </div>
@@ -78,53 +68,49 @@
         const terminal = document.getElementById("terminal");
         const input = document.getElementById("inputBox");
         const corpsClassement = document.getElementById("corps-classement");
+        
+        // Tableau JavaScript pour stocker et trier les scores localement
+        let listeParties = [];
 
         socket.onmessage = (event) => {
             const msg = event.data;
 
-            if (msg.startsWith("CLASSEMENT:")) {
-                const listeRaw = msg.replace("CLASSEMENT:", "");
-                if (listeRaw.trim() === "") {
-                    corpsClassement.innerHTML = `<tr><td colspan="3" style="text-align: center; padding: 15px; color: #666;">Aucune partie trouvée dans le fichier</td></tr>`;
-                    return;
-                }
+            if (msg.startsWith("SCORE_UPDATE:")) {
+                // On extrait "Nom : XX points"
+                const contenu = msg.replace("SCORE_UPDATE:", "");
+                const parts = contenu.split(" : ");
+                const nom = parts[0].trim();
+                const scoreNum = parseInt(parts[1].replace("points", "").trim());
 
-                const scores = listeRaw.split(";");
-                corpsClassement.innerHTML = ""; 
-
-                scores.forEach((entry, index) => {
-                    if (entry.trim() !== "") {
-                        const estDerniere = entry.includes(" - LAST");
-                        // Nettoyer la chaîne pour l'affichage pur
-                        const propreEntry = entry.replace(" - LAST", "");
-                        const parts = propreEntry.split(" - ");
-                        
-                        const joueur = parts[0] || "Anonyme";
-                        const score = parts[1] || "0 pts";
-
+                // On vérifie si cette partie précise est déjà dans notre tableau pour éviter les doublons
+                const existe deja = listeParties.some(p => p.nom === nom && p.score === scoreNum);
+                
+                if (!existeja) {
+                    // On retire le badge "dernière partie" aux anciennes
+                    listeParties.forEach(p => p.actuelle = false);
+                    
+                    // On ajoute la nouvelle venue
+                    listeParties.push({ nom: nom, score: scoreNum, actuelle: true });
+                    
+                    // Tri automatique du plus grand au plus petit score
+                    listeParties.sort((a, b) => b.score - a.score);
+                    
+                    // On reconstruit le tableau HTML (limité au Top 10)
+                    corpsClassement.innerHTML = "";
+                    listeParties.slice(0, 10).forEach((p, index) => {
                         const ligne = document.createElement("tr");
-                        
-                        // Si c'est la dernière partie, appliquer la classe CSS et le symbole éclair
-                        if (estDerniere) {
+                        if (p.actuelle) {
                             ligne.className = "derniere-partie";
-                            ligne.innerHTML = `
-                                <td>⚡ ${index + 1}</td>
-                                <td>${joueur} (Votre partie)</td>
-                                <td class="text-right">${score}</td>
-                            `;
+                            ligne.innerHTML = `<td>⚡ ${index + 1}</td><td>${p.nom} (Nouveau !)</td><td class="text-right">${p.score} pts</td>`;
                         } else {
-                            ligne.innerHTML = `
-                                <td># ${index + 1}</td>
-                                <td>${joueur}</td>
-                                <td class="text-right">${score}</td>
-                            `;
+                            ligne.innerHTML = `<td># ${index + 1}</td><td>${p.nom}</td><td class="text-right">${p.score} pts</td>`;
                         }
                         corpsClassement.appendChild(ligne);
-                    }
-                });
+                    });
+                }
             } else {
                 terminal.innerText = msg;
-                terminal.scrollTop = terminal.scrollHeight; 
+                terminal.scrollTop = terminal.scrollHeight;
             }
         };
 
@@ -136,9 +122,7 @@
             input.focus();
         }
 
-        input.addEventListener("keypress", (e) => {
-            if (e.key === "Enter") envoyer();
-        });
+        input.addEventListener("keypress", (e) => { if (e.key === "Enter") envoyer(); });
     </script>
 </body>
 </html>
