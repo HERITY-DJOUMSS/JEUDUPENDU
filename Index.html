@@ -2,129 +2,164 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pendu - Dynamique</title>
     <style>
         body {
             background-color: #121212; color: #00ff00;
             font-family: 'Consolas', 'Courier New', monospace;
             display: flex; flex-direction: column; align-items: center;
-            margin: 0; padding: 20px;
+            margin: 0; padding: 10px;
+            box-sizing: border-box;
         }
+        
+        /* Conteneur global pour centrer et limiter la largeur sur PC */
+        .container {
+            width: 100%;
+            max-width: 800px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
         #terminal {
             background-color: #000; border: 2px solid #00ff00;
-            padding: 20px; width: 800px; height: 500px;
-            white-space: pre; overflow-y: auto; font-size: 15px; box-shadow: 0 0 10px #00ff00;
+            padding: 15px; height: 400px;
+            white-space: pre-wrap; /* Évite que le texte dépasse sur petit écran */
+            overflow-y: auto; font-size: 14px; box-shadow: 0 0 10px #00ff00;
+            box-sizing: border-box;
         }
-        .input-zone { margin-top: 15px; display: flex; width: 840px; }
+
+        .input-zone { 
+            display: flex; 
+            width: 100%;
+            box-sizing: border-box;
+        }
+        
         input {
             flex-grow: 1; background: #222; color: #00ff00; border: 1px solid #00ff00;
-            padding: 10px; font-family: inherit; font-size: 16px; outline: none;
+            padding: 12px; font-family: inherit; font-size: 16px; outline: none;
+            box-sizing: border-box;
         }
-        button { background: #00ff00; color: #000; font-weight: bold; border: none; padding: 10px 20px; cursor: pointer; }
+        
+        button { 
+            background: #00ff00; color: #000; font-weight: bold; border: none; 
+            padding: 12px 20px; cursor: pointer; font-size: 16px;
+        }
         
         #zone-classement {
-            margin-top: 20px; border: 2px solid #00ff00; padding: 15px; 
-            width: 800px; background-color: #000; box-shadow: 0 0 10px #00ff00;
+            border: 2px solid #00ff00; padding: 15px; 
+            background-color: #000; box-shadow: 0 0 10px #00ff00;
+            box-sizing: border-box;
+            overflow-x: auto; /* Ajoute un défilement si le tableau est trop large sur très petit écran */
         }
-        table { width: 100%; color: #00ff00; border-collapse: collapse; }
-        th, td { padding: 8px; text-align: left; }
+        
+        table { width: 100%; color: #00ff00; border-collapse: collapse; font-size: 14px; }
+        th, td { padding: 10px 8px; text-align: left; }
         th { border-bottom: 2px solid #00ff00; }
         .text-right { text-align: right; }
         .derniere-partie { background-color: rgba(0, 255, 0, 0.25); color: #fff; font-weight: bold; }
+
+        /* Ajustements spécifiques pour les petits téléphones */
+        @media (max-width: 480px) {
+            #terminal { height: 300px; font-size: 12px; }
+            table { font-size: 12px; }
+            button { padding: 12px 10px; }
+        }
     </style>
 </head>
 <body>
-    <div id="terminal">Connexion au serveur Java...</div>
-    <div class="input-zone">
-        <input type="text" id="inputBox" placeholder="Tapez ici..." autocomplete="off" autofocus>
-        <button onclick="envoyer()">Entrée</button>
+
+    <div class="container">
+        <div id="terminal">Connexion au serveur Java...</div>
+        
+        <div class="input-zone">
+            <input type="text" id="inputBox" placeholder="Tapez une lettre ou un pseudo..." autocomplete="off" autofocus>
+            <button onclick="envoyer()">Entrée</button>
+        </div>
+
+        <div id="zone-classement">
+            <h3 style="text-align: center; margin-top: 0;">🏆 TOP 10 DES PARTIES CLASSÉES</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Rang</th>
+                        <th>Joueur</th>
+                        <th class="text-right">Score</th>
+                    </tr>
+                </thead>
+                <tbody id="corps-classement">
+                    <tr><td colspan="3" style="text-align: center; color: #666;">En attente de résultats...</td></tr>
+                </tbody>
+            </table>
+        </div>
     </div>
 
-    <div id="zone-classement">
-        <h3 style="text-align: center; margin-top: 0;">🏆 TOP 10 DES PARTIES CLASSÉES</h3>
-        <table>
-            <thead>
-                <tr>
-                    <th>Rang</th>
-                    <th>Joueur</th>
-                    <th class="text-right">Score</th>
-                </tr>
-            </thead>
-            <tbody id="corps-classement">
-                <tr><td colspan="3" style="text-align: center; color: #666;">En attente de résultats...</td></tr>
-            </tbody>
-        </table>
-    </div>
+    <script>
+        // Remplace par ton adresse active si elle change
+        const socket = new WebSocket("wss://suitor-defog-dreaded.ngrok-free.dev");
+        const terminal = document.getElementById("terminal");
+        const input = document.getElementById("inputBox");
+        const corpsClassement = document.getElementById("corps-classement");
+        
+        let listeParties = [];
 
-   <script>
-    const socket = new WebSocket("wss://suitor-defog-dreaded.ngrok-free.dev");
-    const terminal = document.getElementById("terminal");
-    const input = document.getElementById("inputBox");
-    const corpsClassement = document.getElementById("corps-classement");
+        socket.onmessage = (event) => {
+            const msg = event.data;
 
-    socket.onmessage = (event) => {
-        const msg = event.data;
-
-        if (msg.startsWith("SCORE_UPDATE:")) {
-            // On enlève le préfixe "SCORE_UPDATE:"
-            const rawData = msg.replace("SCORE_UPDATE:", "");
-            if (!rawData.trim()) return;
-
-            // On découpe chaque joueur séparé par des ";"
-            const joueursRaw = rawData.split(";");
-            let listeParties = [];
-
-            joueursRaw.forEach(j => {
-                const infos = j.split(","); // Découpe "Nom,Score"
-                if (infos.length === 2) {
-                    const nomNettoye = infos[0].toUpperCase().trim();
-                    const scoreNum = parseInt(infos[1]);
-                    
-                    if (!isNaN(scoreNum)) {
-                        listeParties.push({ nom: nomNettoye, score: scoreNum });
-                    }
-                }
-            });
-
-            // Tri du plus grand au plus petit score
-            listeParties.sort((a, b) => b.score - a.score);
-
-            // Remplissage dynamique du tableau HTML
-            corpsClassement.innerHTML = "";
-            
-            // On prend uniquement les 10 meilleurs
-            const top10 = listeParties.slice(0, 10);
-            
-            if (top10.length === 0) {
-                corpsClassement.innerHTML = `<tr><td colspan="3" style="text-align: center; color: #666;">Aucun score valide...</td></tr>`;
-                return;
-            }
-
-            top10.forEach((p, index) => {
-                const ligne = document.createElement("tr");
-                // Le premier du classement aura une petite icône de couronne
-                const prefixe = (index === 0) ? "👑" : `# ${index + 1}`;
+            if (msg.startsWith("SCORE_UPDATE:")) {
+                // On nettoie le message pour récupérer uniquement la partie données
+                const cleanMsg = msg.replace("SCORE_UPDATE:", "");
+                const parts = cleanMsg.split(":");
                 
-                ligne.innerHTML = `<td>${prefixe}</td><td>${p.nom}</td><td class="text-right">${p.score} pts</td>`;
-                corpsClassement.appendChild(ligne);
-            });
+                if (parts.length < 2) return;
 
-        } else {
-            // Affichage normal du jeu dans le terminal noir
-            terminal.innerText = msg;
-            terminal.scrollTop = terminal.scrollHeight;
+                const nom = parts[0].toUpperCase().trim();
+                // Extraction stricte des chiffres du score pour éliminer "points" ou les espaces
+                const scoreRaw = parts[1].replaceAll("[^0-9]", "").trim();
+                const scoreNum = parseInt(scoreRaw);
+
+                if (isNaN(scoreNum)) return;
+
+                // Supprime l'ancienne ligne du même joueur s'il fait un nouveau score
+                listeParties = listeParties.filter(p => p.nom !== nom);
+                
+                // Désactive l'indicateur "nouveau" sur les autres lignes
+                listeParties.forEach(p => p.actuelle = false);
+                
+                // Ajoute la nouvelle entrée
+                listeParties.push({ nom: nom, score: scoreNum, actuelle: true });
+                
+                // Tri décroissant
+                listeParties.sort((a, b) => b.score - a.score);
+                
+                // Rendu visuel du tableau
+                corpsClassement.innerHTML = "";
+                listeParties.slice(0, 10).forEach((p, index) => {
+                    const ligne = document.createElement("tr");
+                    if (p.actuelle) {
+                        ligne.className = "derniere-partie";
+                        ligne.innerHTML = `<td>⚡ ${index + 1}</td><td>${p.nom} (Nouveau !)</td><td class="text-right">${p.score} pts</td>`;
+                    } else {
+                        ligne.innerHTML = `<td># ${index + 1}</td><td>${p.nom}</td><td class="text-right">${p.score} pts</td>`;
+                    }
+                    corpsClassement.appendChild(ligne);
+                });
+            } else {
+                terminal.innerText = msg;
+                terminal.scrollTop = terminal.scrollHeight;
+            }
+        };
+
+        function envoyer() {
+            if (input.value.trim() !== "") {
+                socket.send(input.value);
+                input.value = "";
+            }
+            input.focus();
         }
-    };
 
-    function envoyer() {
-        if (input.value.trim() !== "") {
-            socket.send(input.value);
-            input.value = "";
-        }
-        input.focus();
-    }
-
-    input.addEventListener("keypress", (e) => { if (e.key === "Enter") envoyer(); });
-</script>
+        input.addEventListener("keypress", (e) => { if (e.key === "Enter") envoyer(); });
+    </script>
 </body>
 </html>
